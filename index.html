@@ -148,10 +148,14 @@
         .tool-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #F5F5F5; font-size: 14px; }
         .tool-row:last-child { border-bottom: none; }
 
-        /* 匯率換算 UI */
+        /* ✨ 匯率換算 UI 更新 */
         .exchange-box { display:flex; gap:10px; align-items:center; margin-bottom: 5px;}
         .exchange-box input { flex:1; min-width: 0; padding:12px; border-radius:10px; border:1px solid #EAE2D6; font-size:16px; outline:none; box-sizing:border-box;}
         .exchange-result { flex:1; min-width: 0; padding:12px; background:#F4F7F5; border-radius:10px; font-size:16px; font-weight:bold; color:var(--primary); display:flex; justify-content:space-between; box-sizing:border-box;}
+        /* 增加按鈕的點擊樣式 */
+        .swap-btn { cursor: pointer; color: #A0A0A0; font-size: 16px; transition: transform 0.2s, color 0.2s; padding: 5px; border-radius: 50%; }
+        .swap-btn:hover { color: var(--primary); background-color: rgba(132, 150, 105, 0.1); }
+        .swap-btn:active { transform: scale(0.9); }
 
         /* 日語字卡 UI */
         .flashcard-grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
@@ -539,11 +543,21 @@
         
         <div class="tool-box">
             <h3><i class="fas fa-calculator"></i> 匯率快速換算機</h3>
+            
             <div class="exchange-box">
-                <input type="number" id="jpy-input" placeholder="輸入日幣 ¥" oninput="calcExchange()">
-                <i class="fas fa-exchange-alt" style="color:#A0A0A0; font-size:14px;"></i>
-                <div class="exchange-result"><span>NT$</span> <span id="twd-output">0</span></div>
+                <input type="number" id="amt-input" placeholder="輸入金額" oninput="calcExchange()">
+                <i class="fas fa-exchange-alt swap-btn" onclick="swapCurrency()"></i>
+                <div class="exchange-result">
+                    <span id="target-symbol">NT$</span> 
+                    <span id="result-output">0</span>
+                </div>
             </div>
+            
+            <div style="font-size:12px; color:var(--text-sub); margin-top:-2px; margin-bottom:10px; display:flex; justify-content:space-between;">
+                <span id="source-label">輸入：日幣 (JPY)</span>
+                <span id="target-label">換算：台幣 (TWD)</span>
+            </div>
+
             <div style="text-align:right; font-size:11px; color:var(--text-sub); margin-top:8px;">
                 目前匯率 <span id="rate-status" style="color:var(--primary); font-weight:bold;">(載入中...)</span>: 
                 <input type="number" id="rate-input" value="0.21" step="0.001" oninput="calcExchange()" style="width:50px; border:none; border-bottom:1px dashed #ccc; text-align:center; color:var(--primary); font-weight:bold; outline:none; background:transparent;">
@@ -662,7 +676,9 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        /* ================= 自動連網匯率 API 邏輯 ================= */
+        /* ================= 自動連網匯率 API 與雙向切換邏輯 ================= */
+        let isJpyToTwd = true; // 預設：輸入日幣，換算台幣
+
         async function fetchExchangeRate() {
             try {
                 const response = await fetch('https://open.er-api.com/v6/latest/JPY');
@@ -680,14 +696,47 @@
             }
         }
 
-        function calcExchange() {
-            const jpy = document.getElementById('jpy-input').value;
-            const rate = document.getElementById('rate-input').value;
-            const twdOutput = document.getElementById('twd-output');
-            if(jpy && rate) {
-                twdOutput.innerText = Math.round(jpy * rate).toLocaleString();
+        // 切換貨幣方向
+        function swapCurrency() {
+            isJpyToTwd = !isJpyToTwd;
+            const inputField = document.getElementById('amt-input');
+            const targetSymbol = document.getElementById('target-symbol');
+            const sourceLabel = document.getElementById('source-label');
+            const targetLabel = document.getElementById('target-label');
+
+            if (isJpyToTwd) {
+                inputField.placeholder = "輸入金額 ¥ (日幣)";
+                targetSymbol.innerText = "NT$";
+                sourceLabel.innerText = "輸入：日幣 (JPY)";
+                targetLabel.innerText = "換算：台幣 (TWD)";
             } else {
-                twdOutput.innerText = '0';
+                inputField.placeholder = "輸入金額 $ (台幣)";
+                targetSymbol.innerText = "¥";
+                sourceLabel.innerText = "輸入：台幣 (TWD)";
+                targetLabel.innerText = "換算：日幣 (JPY)";
+            }
+
+            // 清空輸入框並重新計算 (顯示0)
+            inputField.value = '';
+            calcExchange();
+        }
+
+        // 計算匯率
+        function calcExchange() {
+            const amount = document.getElementById('amt-input').value;
+            const rate = document.getElementById('rate-input').value;
+            const resultOutput = document.getElementById('result-output');
+            
+            if(amount && rate) {
+                if(isJpyToTwd) {
+                    // 日幣 轉 台幣 (乘上匯率)
+                    resultOutput.innerText = Math.round(amount * rate).toLocaleString();
+                } else {
+                    // 台幣 轉 日幣 (除以匯率)
+                    resultOutput.innerText = Math.round(amount / rate).toLocaleString();
+                }
+            } else {
+                resultOutput.innerText = '0';
             }
         }
 
